@@ -299,3 +299,307 @@
             text-align: center;
             padding: 40px;
             color: #a0aec0;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <!-- Header -->
+    <header>
+        <h1>មង្គលការយើងខ្ញុំ</h1>
+        <p>ប្រព័ន្ធចុះឈ្មោះ និងកត់ត្រាបញ្ជីភ្ញៀវកិត្តិយសចូលរួមកម្មវិធី</p>
+    </header>
+
+    <!-- Dashboard Cards -->
+    <div class="dashboard">
+        <div class="card">
+            <h3>ចំនួនគ្រួសារ/បញ្ជីឈ្មោះ</h3>
+            <div class="card-value" id="total-registrations">0 នាក់</div>
+        </div>
+        <div class="card">
+            <h3>ចំនួនអ្នកចូលរួមសរុប (រួមទាំងដៃគូ)</h3>
+            <div class="card-value" id="total-attendees">0 នាក់</div>
+        </div>
+        <div class="card">
+            <h3>ប្រាក់ចងដៃសរុប</h3>
+            <div class="card-value" style="color: #10b981;" id="total-gifts">$0.00</div>
+        </div>
+    </div>
+
+    <!-- Main Grid -->
+    <div class="main-grid">
+        <!-- Input Form Section -->
+        <div class="form-container">
+            <h2 id="form-title">ចុះឈ្មោះភ្ញៀវថ្មី</h2>
+            <form id="guest-form" onsubmit="handleFormSubmit(event)">
+                <div class="form-group">
+                    <label for="name">ឈ្មោះភ្ញៀវ <span style="color:red;">*</span></label>
+                    <input type="text" id="name" required placeholder="ឧ. ឈឹម វិសាល">
+                </div>
+
+                <div class="form-group">
+                    <label for="phone">លេខទូរស័ព្ទ</label>
+                    <input type="tel" id="phone" placeholder="ឧ. 012 345 678">
+                </div>
+
+                <div class="form-group">
+                    <label for="address">អាសយដ្ឋាន</label>
+                    <input type="text" id="address" placeholder="ឧ. រាជធានីភ្នំពេញ">
+                </div>
+
+                <div class="form-group">
+                    <label for="relation">ប្រភេទទំនាក់ទំនង</label>
+                    <select id="relation">
+                        <option value="ខាងកូនកំលោះ">ខាងកូនកំលោះ</option>
+                        <option value="ខាងកូនក្រមុំ">ខាងកូនក្រមុំ</option>
+                        <option value="ផ្សេងៗ">ផ្សេងៗ</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="companions">ចំនួនអ្នកមកជាមួយ (នាក់)</label>
+                    <input type="number" id="companions" min="0" value="0">
+                </div>
+
+                <div class="form-group">
+                    <label for="gift">ចំនួនប្រាក់ចងដៃ ($)</label>
+                    <input type="number" id="gift" min="0" value="0" step="0.01" placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label for="notes">កំណត់សម្គាល់</label>
+                    <textarea id="notes" placeholder="ព័ត៌មានបន្ថែម..."></textarea>
+                </div>
+
+                <button type="submit" class="btn-submit" id="btn-submit-text">ចុះឈ្មោះភ្ញៀវ</button>
+                <button type="button" class="btn-cancel" id="btn-cancel" onclick="resetForm()">បោះបង់ការកែប្រែ</button>
+            </form>
+        </div>
+
+        <!-- Guest List Section -->
+        <div class="list-container">
+            <div class="search-container">
+                <input type="text" class="search-input" id="search" placeholder="ស្វែងរកតាមឈ្មោះ ឬ លេខទូរស័ព្ទ..." oninput="renderGuests()">
+            </div>
+
+            <div class="table-wrapper">
+                <table id="guest-table">
+                    <thead>
+                        <tr>
+                            <th>ឈ្មោះភ្ញៀវ</th>
+                            <th>លេខទូរស័ព្ទ</th>
+                            <th>ទំនាក់ទំនង</th>
+                            <th>មកជាមួយ</th>
+                            <th>ប្រាក់ចងដៃ</th>
+                            <th>កំណត់សម្គាល់</th>
+                            <th style="width: 140px;">សកម្មភាព</th>
+                        </tr>
+                    </thead>
+                    <tbody id="guest-list">
+                        <!-- Guest rows will be generated here dynamically -->
+                    </tbody>
+                </table>
+                <div id="no-data-msg" class="no-data" style="display: none;">មិនទាន់មានទិន្នន័យភ្ញៀវឡើយ។</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // State Variables
+    let guests = [];
+    let editingId = null;
+
+    // Load Data initially
+    window.onload = function() {
+        loadData();
+        renderGuests();
+    };
+
+    // Load from LocalStorage
+    function loadData() {
+        const storedGuests = localStorage.getItem('wedding_guests');
+        if (storedGuests) {
+            guests = JSON.parse(storedGuests);
+        } else {
+            guests = [];
+        }
+    }
+
+    // Save to LocalStorage
+    function saveData() {
+        localStorage.setItem('wedding_guests', JSON.stringify(guests));
+        calculateDashboard();
+    }
+
+    // Handle Form Submit (Add or Edit)
+    function handleFormSubmit(event) {
+        event.preventDefault();
+
+        const name = document.getElementById('name').value.trim();
+        const phone = document.getElementById('phone').value.trim() || '-';
+        const address = document.getElementById('address').value.trim() || '-';
+        const relation = document.getElementById('relation').value;
+        const companions = parseInt(document.getElementById('companions').value) || 0;
+        const gift = parseFloat(document.getElementById('gift').value) || 0;
+        const notes = document.getElementById('notes').value.trim() || '-';
+
+        if (editingId) {
+            // Edit Mode
+            guests = guests.map(guest => {
+                if (guest.id === editingId) {
+                    return { ...guest, name, phone, address, relation, companions, gift, notes };
+                }
+                return guest;
+            });
+            editingId = null;
+            document.getElementById('form-title').textContent = 'ចុះឈ្មោះភ្ញៀវថ្មី';
+            document.getElementById('btn-submit-text').textContent = 'ចុះឈ្មោះភ្ញៀវ';
+            document.getElementById('btn-cancel').style.display = 'none';
+        } else {
+            // Add Mode
+            const newGuest = {
+                id: Date.now(),
+                name,
+                phone,
+                address,
+                relation,
+                companions,
+                gift,
+                notes
+            };
+            guests.push(newGuest);
+        }
+
+        saveData();
+        renderGuests();
+        resetForm();
+    }
+
+    // Render Guest List
+    function renderGuests() {
+        const searchQuery = document.getElementById('search').value.toLowerCase().trim();
+        const guestList = document.getElementById('guest-list');
+        const noDataMsg = document.getElementById('no-data-msg');
+        
+        guestList.innerHTML = '';
+
+        // Filter guests based on Search input
+        const filteredGuests = guests.filter(guest => 
+            guest.name.toLowerCase().includes(searchQuery) || 
+            guest.phone.toLowerCase().includes(searchQuery)
+        );
+
+        if (filteredGuests.length === 0) {
+            noDataMsg.style.display = 'block';
+        } else {
+            noDataMsg.style.display = 'none';
+            filteredGuests.forEach(guest => {
+                let relationClass = 'tag-other';
+                if (guest.relation === 'ខាងកូនកំលោះ') relationClass = 'tag-groom';
+                if (guest.relation === 'ខាងកូនក្រមុំ') relationClass = 'tag-bride';
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>
+                        <strong>${escapeHTML(guest.name)}</strong><br>
+                        <small style="color:#718096;">${escapeHTML(guest.address)}</small>
+                    </td>
+                    <td>${escapeHTML(guest.phone)}</td>
+                    <td><span class="tag-relation ${relationClass}">${guest.relation}</span></td>
+                    <td>+${guest.companions} នាក់</td>
+                    <td style="font-weight: 600; color: #10b981;">$${guest.gift.toFixed(2)}</td>
+                    <td style="font-size: 12px; color: #718096; max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHTML(guest.notes)}">
+                        ${escapeHTML(guest.notes)}
+                    </td>
+                    <td>
+                        <button class="btn-action btn-edit" onclick="editGuest(${guest.id})">កែប្រែ</button>
+                        <button class="btn-action btn-delete" onclick="deleteGuest(${guest.id})">លុប</button>
+                    </td>
+                `;
+                guestList.appendChild(row);
+            });
+        }
+
+        calculateDashboard();
+    }
+
+    // Edit Guest function
+    function editGuest(id) {
+        const guest = guests.find(g => g.id === id);
+        if (!guest) return;
+
+        editingId = id;
+        document.getElementById('name').value = guest.name;
+        document.getElementById('phone').value = guest.phone === '-' ? '' : guest.phone;
+        document.getElementById('address').value = guest.address === '-' ? '' : guest.address;
+        document.getElementById('relation').value = guest.relation;
+        document.getElementById('companions').value = guest.companions;
+        document.getElementById('gift').value = guest.gift;
+        document.getElementById('notes').value = guest.notes === '-' ? '' : guest.notes;
+
+        document.getElementById('form-title').textContent = 'កែប្រែព័ត៌មានភ្ញៀវ';
+        document.getElementById('btn-submit-text').textContent = 'រក្សាទុកការកែប្រែ';
+        document.getElementById('btn-cancel').style.display = 'block';
+
+        // Scroll to form on mobile devices
+        document.querySelector('.form-container').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Delete Guest function
+    function deleteGuest(id) {
+        if (confirm('តើអ្នកពិតជាចង់លុបទិន្នន័យភ្ញៀវម្នាក់នេះមែនទេ?')) {
+            guests = guests.filter(g => g.id !== id);
+            if (editingId === id) {
+                resetForm();
+            }
+            saveData();
+            renderGuests();
+        }
+    }
+
+    // Calculate Dashboard numbers
+    function calculateDashboard() {
+        const totalRegistrations = guests.length;
+        
+        // Total Attendees = Guest himself (1) + companions
+        const totalAttendees = guests.reduce((sum, guest) => sum + 1 + guest.companions, 0);
+        
+        // Total Gift money
+        const totalGifts = guests.reduce((sum, guest) => sum + guest.gift, 0);
+
+        document.getElementById('total-registrations').textContent = `${totalRegistrations} គ្រួសារ/នាក់`;
+        document.getElementById('total-attendees').textContent = `${totalAttendees} នាក់`;
+        document.getElementById('total-gifts').textContent = `$${totalGifts.toFixed(2)}`;
+    }
+
+    // Reset Form to Default
+    function resetForm() {
+        document.getElementById('guest-form').reset();
+        editingId = null;
+        document.getElementById('form-title').textContent = 'ចុះឈ្មោះភ្ញៀវថ្មី';
+        document.getElementById('btn-submit-text').textContent = 'ចុះឈ្មោះភ្ញៀវ';
+        document.getElementById('btn-cancel').style.display = 'none';
+        document.getElementById('companions').value = 0;
+        document.getElementById('gift').value = 0;
+    }
+
+    // Helper function to prevent XSS (Security check)
+    function escapeHTML(str) {
+        if (!str) return '';
+        return str.replace(/[&<>'"]/g, 
+            tag => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                "'": '&#39;',
+                '"': '&quot;'
+            }[tag] || tag)
+        );
+    }
+</script>
+
+</body>
+</html>
